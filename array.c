@@ -62,7 +62,7 @@ static void ds_array_contract(ds *self) {
 }
 static int ds_array_expand(ds *self, size_t length) {
 	ds_array *obj = self->data;
-	size_t newlength = obj->num_elems;
+	size_t newlength = obj->num_elems ? obj->num_elems : 1;
 
 	if(length <= obj->elem_alloc) return 0;  /* Already big enough */
 	while(newlength < length) newlength <<= 1;
