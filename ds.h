@@ -15,43 +15,11 @@ typedef struct ds {
 	int (*compare)();
 } ds;
 
-typedef struct {
-	int64_t data;
-} ds_int;
-
-typedef struct {
-	long double data;
-} ds_float;
-
-/* This can be a null-terminated string or a string of binary data */
-typedef struct {
-	size_t length;
-	unsigned char data[0];
-} ds_string;
-
-typedef struct {
-	size_t elem_alloc; /* Number of elements allocated (index_zero + num_elems <= elem_alloc) */
-	size_t min_alloc;  /* Normally 0 unless tweaked by user to avoid reallocing (gets set back to 0 on ds_array_undef()) */
-	size_t index_zero; /* Index (in data) of the zero'th element */
-	size_t num_elems;  /* Number of valid elements */
-	ds **data;
-} ds_array;
-
-//typedef struct {
-	// dunno yet
-//} ds_hash;
-
-
-
 
 /* ERROR AND WARNING CODES */
 extern int ds_errno;
 extern const int ds_err_sys;  /* A system call returned an error - check errno */
 extern const int ds_err_type; /* A parameter was of the wrong type */
-
-
-
-
 
 
 /* FUNCTION PROTOTYPES */
@@ -67,15 +35,18 @@ extern int ds_any_free(ds *self);                                       /* Decre
 
 /* integer functions */
 extern const char *ds_int_type;
-extern int ds_int_set(ds *self, int64_t value);
+extern int ds_int_set(ds *self, long long value);
+extern ds * ds_int_new(long long value);
 
 /* float functions */
 extern const char *ds_float_type;
 extern int ds_float_set(ds *self, long double value);
+extern ds * ds_float_new(long double value);
 
 /* string functions - may include nulls if length is specified */
 extern const char *ds_string_type;
 extern int ds_string_set(ds *self, size_t length, const char *value);   /* if(length == -1) length = strlen(value) + 1; */
+extern ds * ds_string_new(size_t length, const char *value);
 
 /* array functions */
 extern const char *ds_array_type;
@@ -104,5 +75,6 @@ extern int ds_array_set(ds *self, size_t index, const void *elem);
  * calling ds_any_compare() on a complex data structure compares all elements
  * and sub-structures.  All elements stored in containers must be of type ds.
  */
+
 /* All functions return 0 on success, a negative value to indicate an error,
  * and a positive value to indicate success with a warning. */
