@@ -111,85 +111,89 @@ bad_karma:
 	return 0;
 }
 
-ds *ds_hash_get(ds *self, const char *key)
+/*
+ * Finds the bucket with the given key.  If the linkto parameter is non-null, 
+ * it is filled with the address of the pointer to the bucket, so that the
+ * link to it can be restored without having to search manually or use a
+ * double-linked list.
+ */
+static struct bkt *find_bkt(ds *self, const char *key, struct bkt **linkto)
 {
 	ds_hash *me = self->data;
 	int hash_value = hash(key, strlen(key)) % me->table_size;
 	struct bkt *bucket;
 
 	bucket = me->bucket[hash_value];
+	if(linkto) *linkto = (struct bkt *)(me->bucket + hash_value);
 
 	while(bucket)
 	{
-		if(!strcmp(key, bucket->key))
-		{
-			bucket->data->ref_count++;
-			return bucket->data;
-		}
+		if(!strcmp(key, bucket->key)) return bucket;
+		if(linkto) *linkto = bucket;
 		bucket = bucket->next;
 	}
 	return 0;
 }
 
-/* Returns 0 if equal, positive if not equal */
+ds *ds_hash_get(ds *self, const char *key)
+{
+	struct bkt *bucket = find_bkt(self, key, 0);
 
+	if(!bucket) return 0;
+
+	bucket->data->ref_count++;
+	return bucket->data;
+}
+
+/* Returns 0 if equal, positive if not equal */
 int ds_hash_compare(ds *self, ds *other)
 {
 	return 0;
 }
 
-int ds_hash_undef_elem(ds *self, const char *key)
+void ds_hash_undef_elem(ds *self, const char *key)
 {
 	ds_hash *me = self->data;
-	int hash_value = hash(key, strlen(key)) % me->table_size;
-	struct bkt *last_bucket = (void *)(me->bucket + hash_value), *bucket = me->bucket[hash_value];
+	struct bkt *last_bucket;
+	struct bkt *bucket = find_bkt(self, key, &last_bucket);
 
-	if(--self->ref_count) return;	/* Only undef if no more refs exist. */
+	if(!bucket) return;	/* No error, but not found. */
 
-	while(bucket)
-	{
-		if(!strcmp(key, bucket->key))
-		{
-			last_bucket->next = bucket->next;
-			free(bucket);
-			me->num_entries--;
-			return 0;
-		}
-		last_bucket = bucket;
-		bucket = bucket->next;
-	}
+	last_bucket = bucket->next;
+	ds_any_undef(bucket->data);
+	free(bucket);
 
-	return ds_error_undef;
+	me->num_entries--;
 }
 
 int ds_hash_set_elem(ds *self, const char *key, ds *value)
 {
 	ds_hash *me = self->data;
 	int hash_value = hash(key, strlen(key)) % me->table_size;
-	struct bkt *bucket = me->bucket[hash_value];
-
-	/* Find this entry if it exists. */
-	while(bucket)
+	struct bkt *bucket = find_bkt(self, key, 0);
+	if(bucket)
 	{
-		if(!strcmp(key, bucket->key))
-		{
-			/* We found the key, so just change the data. */
-			ds_any_undef(bucket->data);	/* Get rid of the old data. */
-			if(!(bucket->data = ds_any_copy(value))) return ds_error;
-			return 0;
-		}
-		bucket = bucket->next;
+		/* We found the key, so just change the data. */
+		ds_any_undef(bucket->data);	/* Get rid of the old data. */
+		if(!(bucket->data = ds_any_copy(value))) return ds_error;
+
+		return 0;
 	}
 
 	/* If we got here, the entry does not exist. Create it. */
-	if(!(bucket = malloc(strlen(key) + 1) + sizeof(struct bkt))) return ds_error_sys;
+	if(!(bucket = malloc(strlen(key) + 1 + sizeof(struct bkt)))) return ds_error_sys;
 
 	strcpy(bucket->key, key);			/* Copy the key.  */
+
+#if 0
 	if(!(bucket->data = ds_any_copy(value)))	/* Copy the data. */
 	{
 		free(bucket);
 		return ds_error;
 	}
+#endif
+	bucket->data = value;
+	value->ref_count++;
 
 	/* Insert the bucket into the chain. */
 	bucket->next = me->bucket[hash_value];
