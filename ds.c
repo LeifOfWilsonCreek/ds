@@ -3,6 +3,7 @@
 #include "ds.h"
 
 const int ds_err_sys = -1;
+const int ds_err_type = -2;
 
 
 int ds_any_undef(ds *self) {
@@ -15,28 +16,28 @@ int ds_any_copy(const ds *self, ds **other) {
 		return ds_any_new(other);
 	return self->copy(self, other);
 }
-int ds_any_compare(const ds *self, const ds *other) {
-	if(self->compare)
-		return self->compare(self, other);
-	else if(other->compare)
-		return -other->compare(other, self);
-	else
-		return 0;  /* undef == undef */
+int ds_any_compare(const ds *self, const ds *other, int *result) {
+	if(! self->data && ! other->data) {
+		*result = 0;  /* undef == undef */
+		return 0;
+	}
+	if(self->compare == other->compare)
+		return self->compare(self, other, result);
+	return ds_err_type;
 }
 int ds_any_new(ds **self) {
 	if(!(*self = malloc(sizeof(**self)))) return ds_err_sys;
 	(*self)->data = 0;
 	(*self)->ref_count = 1;
-	(*self)->undef   = 0;
-	(*self)->copy    = 0;
+	(*self)->undef = 0;
+	(*self)->copy = 0;
 	(*self)->compare = 0;
 	return 0;
 }
 int ds_any_defined(const ds *self) {
 	if(self->data)
 		return 1;
-	else
-		return 0;
+	return 0;
 }
 int ds_any_free(ds *self) {
 	int err;
@@ -47,9 +48,6 @@ int ds_any_free(ds *self) {
 	free(self);
 	return err;
 }
-
-
-
 
 
 
@@ -74,20 +72,17 @@ int ds_int_copy(const ds *self, ds **other) {
 fail2:	ds_any_free(*other);
 fail1:	return err;
 }
-int ds_int_compare(const ds *self, const ds *other) {
-	ds_int first, second;
+int ds_int_compare(const ds *self, const ds *other, int *result) {
+	ds_int *first = self->data;
+	ds_int *second = other->data;
 
-	first.data = ((ds_int *)self->data)->data;
-	if(other->data)
-		first.data = ((ds_int *)other->data)->data;
+	if(first->data == second->data)
+		*result = 0;
+	else if(first->data > second->data)
+		*result = 1;
 	else
-		first.data = 0;   /* undef is like zero */
-
-	if(first.data == second.data)
-		return 0;
-	if(first.data > second.data)
-		return 1;
-	return -1;
+		*result = -1;
+	return 0;
 }
 int ds_int_set(ds *self, int64_t value) {
 	if(self->data)
@@ -99,6 +94,7 @@ int ds_int_set(ds *self, int64_t value) {
 
 	return 0;
 }
+
 
 
 
@@ -132,22 +128,17 @@ int ds_float_copy(const ds *self, ds **other) {
 fail2:	ds_any_free(*other);
 fail1:	return err;
 }
-int ds_float_compare(const ds *self, const ds *other) {
-#if 0
-	ds_float first, second;
+int ds_float_compare(const ds *self, const ds *other, int *result) {
+	ds_float *first = self->data;
+	ds_float *second = other->data;
 
-	first.data = ((ds_float *)self->data)->data;
-	if(other->data)
-		first.data = ((ds_float *)other->data)->data;
+	if(first->data == second->data)
+		*result = 0;
+	else if(first->data > second->data)
+		*result = 1;
 	else
-		first.data = 0;   /* undef is like zero */
-
-	if(first.data == second.data)
-		return 0;
-	if(first.data > second.data)
-		return 1;
-#endif
-	return -1;
+		*result = -1;
+	return 0;
 }
 int ds_float_set(ds *self, long double value) {
 	if(self->data)
@@ -172,8 +163,10 @@ int ds_float_set(ds *self, long double value) {
 
 
 
+
+
+
 int ds_string_undef(ds *self) {
-	free(((ds_string *)self->data)->data);
 	free(self->data);
 	self->data    = 0;
 	self->undef   = 0;
@@ -181,48 +174,41 @@ int ds_string_undef(ds *self) {
 	self->compare = 0;
 	return 0;
 }
-
-#if 0
 int ds_string_copy(const ds *self, ds **other) {
 	int err;
 
 	if((err = ds_any_new(other))) goto fail1;
-	if((err = ds_string_set(*other, ((ds_string *)self->data)->data))) goto fail2;
+	if((err = ds_string_set(*other, ((ds_string *)self->data)->length, ((ds_string *)self->data)->data))) goto fail2;
 	return 0;
 
 fail2:	ds_any_free(*other);
 fail1:	return err;
 }
-int ds_string_copy(const ds_string *ds, ds_string **copy) {
-	int err;
-	if(! (*copy = malloc(sizeof(**copy)))) {err = DS_ESYS; goto fail1;}
-	**copy = *ds;
+int ds_string_compare(const ds *self, const ds *other, int *result) {
+	ds_string *first = self->data;
+	ds_string *second = other->data;
+	size_t index = 0;
 
-	/* Dup the data */
-	if((*copy)->data) {
-		if(! ((*copy)->data = malloc((*copy)->length))) {err = DS_ESYS; goto fail2;}
-		memcpy((*copy)->data, self->data, (*copy)->length);
-	}
-	return 0;
+	while(1) {
+		if(index == first->length && index == second->length) {
+			*result = 0;
+			return 0;
+		}
+		if(index == first->length) {
+			*result = -1;
+			return 0;
+		}
+		if(index == second->length) {
+			*result = 1;
+			return 0;
+		}
+		*result = first->data[index] - second->data[index];
+		if(*result)
+			return 0;
+		index++;
+}	}
 
-fail2:	free(*copy); *copy = 0;
-fail1:	return err;
-}
-int ds_string_compare(const ds *self, const ds *other) {
-	ds_string first, second;
-
-	first.data = ((ds_string *)self->data)->data;
-	if(other->data)
-		first.data = ((ds_string *)other->data)->data;
-	else
-		first.data = 0;   /* undef is like zero */
-
-	if(first.data == second.data)
-		return 0;
-	if(first.data > second.data)
-		return 1;
-	return -1;
-}
+#if 0
 int ds_string_set(ds *self, long double value) {
 	if(self->data)
 		ds_any_undef(self);
@@ -242,6 +228,8 @@ int ds_string_set(ds_string *ds, size_t length, const char *value) {
 	self->data = data;
 	return 0;
 }
+
+
 
 
 
