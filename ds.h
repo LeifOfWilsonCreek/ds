@@ -4,10 +4,9 @@
 
 /* STRUCT DECLARATIONS */
 
-/* This data type is used to refer to any storage unit.  The data element may
- * point to any of the structs below. */
+/* This data type is used to refer to any storage unit. */
 typedef struct ds {
-	const char *type;   /* Null pointer here means "undef" */
+	const char *type;
 	void *data;
 	int ref_count;
 	int (*undef)();
@@ -17,22 +16,25 @@ typedef struct ds {
 
 
 /* ERROR CODES */
+
 extern int ds_errno;
 extern const int ds_err_sys;    /* A system call returned an error - check errno */
-extern const int ds_err_type;   /* A parameter was of the wrong type */
 extern const int ds_err_undef;  /* A parameter which may not be undefined was */
+extern const int ds_err_type;   /* A parameter was of the wrong type */
 
 
 /* FUNCTION PROTOTYPES */
 
 /* General functions - These may be used on any ds type from below for the data
  * structure passed in. */
+extern const char * ds_errstr(int error);                               /* Returns description of error from ds_errno */
 extern int ds_any_undef(ds *self);                                      /* Frees data associated with the ds and sets its value to "undefined"; ds is still allocated for use */
 extern ds * ds_any_copy(const ds *self);                                /* Makes a copy as stores it in other */
 extern int ds_any_compare(const ds *self, const ds *other, int *result);/* Compares the two, stores 0, a negative, or a positive in result */
 extern ds * ds_any_new();                                               /* Creates a new ds with value "undef" */
 extern int ds_any_defined(const ds *self);                              /* Returns true if the ds has a "defined" (meaningful) value */   // XXX: Non-conformal return value
 extern int ds_any_free(ds *self);                                       /* Decrements ref_count, frees the ds if necessary */
+extern void ds_any_incref(ds *self);                         
 
 /* integer functions */
 extern const char *ds_int_type;
@@ -57,8 +59,8 @@ extern const char *ds_array_type;
 extern int ds_array_set(ds *self, ...);                                 /* Sets self to an array containing the specified ds's (the list is null-termed) */
 extern ds * ds_array_new();
 extern int ds_array_get(ds *self, ds **value, int index);
-ds * ds_array_slice(ds *self, size_t offset, size_t length);            /* Returns a new array (which must be freed) containing a slice of self */
-int ds_array_splice(ds *self, size_t off, size_t len, const ds *insert);/* Replaces the elements off to off+len with the elements in the array insert */
+extern ds * ds_array_slice(ds *self, size_t offset, size_t length);     /* Returns a new array (which must be freed) containing a slice of self */
+extern int ds_array_splice(ds *s, size_t o, size_t l, const ds *insert);/* Replaces the elements o to o+l with the elements in the array insert */
 extern int ds_array_push(ds *self, ds *elem);                           /* Appends after the last element */
 extern ds * ds_array_pop(ds *self);                                     /* Removes the last element */
 extern int ds_array_push0(ds *self, ds *elem);                          /* Inserts at the 0th element (like unshift) */
