@@ -10,9 +10,8 @@
 
 #include "ds.h"
 
-static int primes[] =
+static const int primes[] =
 {
-	0,	/* The first value is never used here because it corresponds to a null in the string. */
 	#include "primes.lst"
 };
 
@@ -23,7 +22,7 @@ static int primes[] =
  * how much impact that has.
  */
  
-static int hash(const void *in, size_t size)
+static unsigned int hash(const void *in, size_t size)
 {
 	const unsigned char *data = in;
 	unsigned int offset = 0;
@@ -49,8 +48,8 @@ struct bkt
 
 typedef struct
 {
-	int table_size;		/* Size of bucket table allocated */
-	int num_entries;	/* Number of entries in the hash*/
+	int table_size;		/* Number of buckets allocated */
+	int num_entries;	/* Number of entries in the hash */
 	struct bkt *bucket[0];	/* This is going to be an array of linked lists. */
 } ds_hash;
 
@@ -114,9 +113,9 @@ bad_karma:
 
 ds *ds_hash_get(ds *self, const char *key)
 {
-	int hash_value = hash(key, strlen(key));
-	struct bkt *bucket;
 	ds_hash *me = self->data;
+	int hash_value = hash(key, strlen(key)) % me->table_size;
+	struct bkt *bucket;
 
 	bucket = me->bucket[hash_value];
 
@@ -145,6 +144,8 @@ int ds_hash_undef_elem(ds *self, const char *key)
 	int hash_value = hash(key, strlen(key)) % me->table_size;
 	struct bkt *last_bucket = (void *)(me->bucket + hash_value), *bucket = me->bucket[hash_value];
 
+	if(--self->ref_count) return;	/* Only undef if no more refs exist. */
+
 	while(bucket)
 	{
 		if(!strcmp(key, bucket->key))
@@ -166,30 +167,35 @@ int ds_hash_set_elem(ds *self, const char *key, ds *value)
 	ds_hash *me = self->data;
 	int hash_value = hash(key, strlen(key)) % me->table_size;
 	struct bkt *bucket = me->bucket[hash_value];
-	void *temp;
 
+	/* Find this entry if it exists. */
 	while(bucket)
 	{
 		if(!strcmp(key, bucket->key))
 		{
-			temp = bucket;
-
-			if(!(bucket = realloc(bucket, strlen(key) + 1) + sizeof(struct bkt)))
-			{
-				bucket = temp;
-				return ds_error_sys;
-			}
-			strcpy(bucket->key, key);
+			/* We found the key, so just change the data. */
+			ds_any_undef(bucket->data);	/* Get rid of the old data. */
+			if(!(bucket->data = ds_any_copy(value))) return ds_error;
 			return 0;
 		}
 		bucket = bucket->next;
 	}
 
+	/* If we got here, the entry does not exist. Create it. */
 	if(!(bucket = malloc(strlen(key) + 1) + sizeof(struct bkt))) return ds_error_sys;
-	strcpy(bucket->key, key);
+
+	strcpy(bucket->key, key);			/* Copy the key.  */
+	if(!(bucket->data = ds_any_copy(value)))	/* Copy the data. */
+	{
+		free(bucket);
+		return ds_error;
+	}
+
+	/* Insert the bucket into the chain. */
 	bucket->next = me->bucket[hash_value];
 	me->bucket[hash_value] = bucket;
-	me->num_entries++;
+
+	me->num_entries++;	/* Increase the entry count. */
 
 	return 0;
 }
@@ -198,11 +204,14 @@ ds *ds_hash_set(ds *self, ...)
 {
 	va_list list;
 	int num_entries = 0;
-	ds_hash *my_data;
-	void *temp, *temp2;
+	ds_hash *me;
+	char *key;
+	ds   *value;
 
+	/* If the ds is not created, create it. */
+	if(!self) if(!(self = ds_any_new())) return 0;
 	/* ds_error is initialized by ds_any_undef, so we don't need to touch it. */
-	ds_any_undef(self);
+	if(self->ref_count) ds_any_undef(self);
 
 	va_start(list, self);
 
@@ -215,13 +224,13 @@ ds *ds_hash_set(ds *self, ...)
 	while(va_arg(list, void *)) num_entries++;
 	num_entries /= 2;	/* For every 2 values passed, there is 1 key and one value. */
 	va_end(list);
-	va_start(list, self);
+	va_start(list, self);	/* Reset the va_list for the actual entries. */
 
 	/*
-	 * We malloc the struct and the hash table as one allocation, to avoid
+	 * We malloc the ds_hash and the hash table as one allocation, to avoid
 	 * having lots of little allocations.
 	 */
-	if(!(my_data = self->data = malloc(num_entries * sizeof(struct bkt *) + sizeof(ds_hash)) ))
+	if(!(me = self->data = malloc(num_entries * sizeof(struct bkt *) + sizeof(ds_hash)) ))
 	{
 		/* System call returned error, indicate check errno */
 		ds_error = ds_error_sys;
@@ -229,17 +238,23 @@ ds *ds_hash_set(ds *self, ...)
 		return 0;
 	}
 
-	my_data->table_size = num_entries * sizeof(struct bkt *);
-	my_data->num_entries = num_entries;
-	memset(my_data->bucket, 0, my_data->table_size);
-
+	/* Initialize the ds struct as a hash. */
 	self->type = ds_hash_type;
 	self->undef = ds_hash_undef;
 	self->copy = (void *)ds_hash_copy;
 	self->compare = (void *)ds_hash_compare;
 
-	while((temp = va_arg(list, char *)) && (temp2 = va_arg(list, ds *)))
-		ds_hash_set_elem(self, temp, temp2);
+	/* Initialize the ds_hash struct itself. */
+	me->table_size = num_entries;
+	me->num_entries = 0;	/* This will be set as the items are added. */
+	memset(me->bucket, 0, me->table_size * sizeof(me->bucket[0]));
+
+	while((key = va_arg(list, char *)) && (value = va_arg(list, ds *)))
+		if(ds_hash_set_elem(self, key, value))
+		{
+			ds_hash_undef(self);
+			return 0;
+		}
 
 	va_end(list);
 	return self;
