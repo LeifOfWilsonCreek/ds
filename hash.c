@@ -160,7 +160,7 @@ void ds_hash_undef_elem(ds *self, const char *key)
 
 	if(!bucket) return;	/* No error, but not found. */
 
-	last_bucket = bucket->next;
+	last_bucket->next = bucket->next;
 	ds_any_undef(bucket->data);
 	free(bucket);
 
