@@ -76,7 +76,7 @@ ds * ds_string_new(size_t length, const char *value) {
 fail2:	ds_any_free(ret);
 fail1:	return 0;
 }
-int ds_string_get(ds *self, size_t *length, char **value) {
+int ds_string_get(ds *self, size_t *length, char **value) {  // XXX: Should the last parameter be const?
 	if(self->type != ds_string_type) {ds_error = ds_error_type; return ds_error;}
 	if(length)
 		*length = ((ds_string *)self->data)->length;
