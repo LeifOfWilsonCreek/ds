@@ -30,13 +30,13 @@ static int ds_array_resize(ds *self, size_t length) {
 	if(oldobj->index_zero + oldobj->num_elems <= oldobj->elem_alloc  /* Array DID not wrap (before expansion) */
 	&& oldobj->index_zero + oldobj->num_elems <= length) {           /* Array WILL not wrap (before contraction) */
 		/* Use realloc() - it saves reconstruction time and might save us a block move */
-		if(!(newobj = realloc(oldobj, sizeof(*newobj) + length * sizeof(newobj->data[0])))) {ds_errno = ds_err_sys; return ds_errno;}
+		if(!(newobj = realloc(oldobj, sizeof(*newobj) + length * sizeof(newobj->data[0])))) {ds_error = ds_error_sys; return ds_error;}
 		newobj->elem_alloc = length;
 		self->data = newobj;
 		return 0;
 	}
 
-	if((newobj = malloc(sizeof(*newobj) + length * sizeof(newobj->data[0])))) {ds_errno = ds_err_sys; return ds_errno;}
+	if((newobj = malloc(sizeof(*newobj) + length * sizeof(newobj->data[0])))) {ds_error = ds_error_sys; return ds_error;}
 	newobj->elem_alloc = length;
 	newobj->min_alloc = oldobj->min_alloc;
 	newobj->index_zero = 0;
@@ -76,7 +76,7 @@ int ds_array_setalloc(ds *self, size_t length) {
 	}
 
 	/* Resize the array */
-	if(ds_array_resize(self, length)) return ds_errno;
+	if(ds_array_resize(self, length)) return ds_error;
 	obj = self->data;
 	obj->min_alloc = length;
 
@@ -150,14 +150,14 @@ int ds_array_set(ds *self, ...) {
 	ds_array *obj;
 	size_t num_elems;
 
-	if(ds_any_undef(self)) return ds_errno;
+	if(ds_any_undef(self)) return ds_error;
 
 	num_elems = 0;
 	va_start(elems, self);
 	while(va_arg(elems, typeof(elem))) num_elems++;
 	va_end(elems);
 
-	if(!(self->data = obj = malloc(sizeof(ds_array) + num_elems * sizeof(elem)))) {ds_errno = ds_err_sys; return ds_errno;}
+	if(!(self->data = obj = malloc(sizeof(ds_array) + num_elems * sizeof(elem)))) {ds_error = ds_error_sys; return ds_error;}
 	num_elems = 0;
 	va_start(elems, self);
 	while((elem = va_arg(elems, typeof(elem)))) {
@@ -192,6 +192,7 @@ fail1:	return 0;
 int ds_array_get(ds *self, ds **value, int index) {
 	ds_array *obj = self->data;
 	*value = ELEMENT(obj, index);
+	ds_any_incref(*value);
 	return 0;
 }
 ds * ds_array_slice(ds *self, size_t offset, size_t length) {
@@ -234,7 +235,7 @@ int ds_array_splice(ds *self, size_t before_len, size_t delete_len, const ds *in
 	obj = self->data;
 	after_len = obj->num_elems - before_len - delete_len;
 	if(insert) {
-		if(insert->type != ds_array_type) {ds_errno = ds_err_type; return ds_errno;}
+		if(insert->type != ds_array_type) {ds_error = ds_error_type; return ds_error;}
 		insert_obj = insert->data;
 		insert_len = insert_obj->num_elems;
 	} else {
@@ -242,7 +243,7 @@ int ds_array_splice(ds *self, size_t before_len, size_t delete_len, const ds *in
 		insert_len = 0;
 	}
 
-	if(ds_array_expand(self, obj->num_elems - delete_len + insert_len)) return ds_errno;
+	if(ds_array_expand(self, obj->num_elems - delete_len + insert_len)) return ds_error;
 
 	index = 0;
 	while(index < delete_len) {
@@ -282,7 +283,7 @@ int ds_array_splice(ds *self, size_t before_len, size_t delete_len, const ds *in
 }
 int ds_array_push(ds *self, ds *elem) {
 	ds_array *obj = self->data;
-	if(ds_array_expand(self, obj->num_elems + 1)) return ds_errno;
+	if(ds_array_expand(self, obj->num_elems + 1)) return ds_error;
 
 	obj = self->data;
 	obj->num_elems++;
@@ -292,7 +293,7 @@ int ds_array_push(ds *self, ds *elem) {
 }
 int ds_array_push0(ds *self, ds *elem) {
 	ds_array *obj = self->data;
-	if(ds_array_expand(self, obj->num_elems + 1)) return ds_errno;
+	if(ds_array_expand(self, obj->num_elems + 1)) return ds_error;
 
 	obj = self->data;
 	if(obj->index_zero)
@@ -308,7 +309,7 @@ ds * ds_array_pop(ds *self) {
 	ds *ret;
 	ds_array *obj = self->data;
 	if(! obj->num_elems) {
-		ds_errno = 0;
+		ds_error = 0;
 		return 0;
 	}
 	ret = ELEMENT(obj, obj->num_elems - 1);
@@ -320,7 +321,7 @@ ds * ds_array_pop0(ds *self) {
 	ds *ret;
 	ds_array *obj = self->data;
 	if(! obj->num_elems) {
-		ds_errno = 0;
+		ds_error = 0;
 		return 0;
 	}
 	ret = obj->data[obj->index_zero];

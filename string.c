@@ -51,9 +51,9 @@ static int ds_string_compare(const ds *self, const ds *other, int *result) {
 		index++;
 }	}
 int ds_string_set(ds *self, size_t length, const char *value) {
-	if(ds_any_undef(self)) return ds_errno;
+	if(ds_any_undef(self)) return ds_error;
 	if(length == -1) length = strlen(value) + 1;
-	if(! (self->data = malloc(sizeof(ds_string) + length))) return ds_err_sys;
+	if(! (self->data = malloc(sizeof(ds_string) + length))) return ds_error_sys;
 	memcpy(((ds_string *)self->data)->data, value, length);
 	self->type    = ds_string_type;
 	self->undef   = ds_string_undef;
@@ -71,7 +71,7 @@ fail2:	ds_any_free(ret);
 fail1:	return 0;
 }
 int ds_string_get(ds *self, size_t *length, const char **value) {
-	if(self->type != ds_string_type) {ds_errno = ds_err_type; return ds_errno;}
+	if(self->type != ds_string_type) {ds_error = ds_error_type; return ds_error;}
 	if(length)
 		*length = ((ds_string *)self->data)->length;
 	if(value)

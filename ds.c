@@ -2,19 +2,19 @@
 
 #include "ds.h"
 
-int ds_errno = 0;
-const int ds_err_sys = 1;
-const int ds_err_undef = 2;
-const int ds_err_type = 3;
+int ds_error = 0;
+const int ds_error_sys = 1;
+const int ds_error_undef = 2;
+const int ds_error_type = 3;
 
-static const char *ds_errno_strings[] = {
+static const char *ds_error_strings[] = {
 	"no error",
 	"undefined value",
 	"type mismatch",
 	0
 };
-const char * ds_errstr(int error) {
-	return ds_errno_strings[error];
+const char * ds_error_string(int error) {
+	return ds_error_strings[error];
 }
 int ds_any_undef(ds *self) {
 	if(! ds_any_defined(self))
@@ -29,27 +29,27 @@ ds * ds_any_copy(const ds *self) {
 int ds_any_compare(const ds *self, const ds *other, int *result) {
 	if(! ds_any_defined(self) && ! ds_any_defined(other)) {
 		*result = 0;  /* undef == undef */
-		ds_errno = ds_err_undef;
-		return ds_errno;
+		ds_error = ds_error_undef;
+		return ds_error;
 	}
 	if(! ds_any_defined(self)) {
 		*result = -1;
-		ds_errno = ds_err_undef;
-		return ds_errno;
+		ds_error = ds_error_undef;
+		return ds_error;
 	}
 	if(! ds_any_defined(other)) {
 		*result = 1;
-		ds_errno = ds_err_undef;
-		return ds_errno;
+		ds_error = ds_error_undef;
+		return ds_error;
 	}
 	if(self->compare == other->compare)
 		return self->compare(self, other, result);
-	ds_errno = ds_err_type;
-	return ds_errno;
+	ds_error = ds_error_type;
+	return ds_error;
 }
 ds * ds_any_new() {
 	ds *ret;
-	if(!(ret = malloc(sizeof(*ret)))) {ds_errno = ds_err_sys; return 0;}
+	if(!(ret = malloc(sizeof(*ret)))) {ds_error = ds_error_sys; return 0;}
 	ret->type = 0;
 	ret->data = 0;
 	ret->ref_count = 1;

@@ -39,8 +39,8 @@ static int ds_float_compare(const ds *self, const ds *other, int *result) {
 	return 0;
 }
 int ds_float_set(ds *self, long double value) {
-	if(ds_any_undef(self)) return ds_errno;
-	if(! (self->data = malloc(sizeof(ds_float)))) {ds_errno = ds_err_sys; return ds_errno;}
+	if(ds_any_undef(self)) return ds_error;
+	if(! (self->data = malloc(sizeof(ds_float)))) {ds_error = ds_error_sys; return ds_error;}
 	((ds_float *)self->data)->data = value;
 	self->type    = ds_float_type;
 	self->undef   = ds_float_undef;
@@ -58,7 +58,7 @@ fail2:	ds_any_free(ret);
 fail1:	return 0;
 }
 int ds_float_get(ds *self, long double *value) {
-	if(self->type != ds_float_type) {ds_errno = ds_err_type; return ds_errno;}
+	if(self->type != ds_float_type) {ds_error = ds_error_type; return ds_error;}
 	*value = ((ds_float *)self->data)->data;
 	return 0;
 }

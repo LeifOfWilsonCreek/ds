@@ -1,0 +1,3 @@
+/* hash functions */
+//extern const char *ds_hash_type;
+//...

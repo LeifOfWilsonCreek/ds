@@ -1,17 +1,29 @@
 #if 0
 #include <stdio.h>
 
-#include "ds.h"
+#include "ds.c"
+
+void panic(const char *file, const char *function, int line) {
+	fprintf(stderr, "%s %s %i: %s\n", file, function, line, ds_strerr(ds_error));
+	exit(1);
+}
+
+#define panic() panic(__FILE__, __FUNCTION__, __LINE__)
 
 int main() {
+	ds *array;
 	ds *foo;
 
-	if(!(foo = ds_any_new())) printf("Failed 1: ds_error = %i\n", ds_error), exit(1);
-	if(ds_string_set(foo, -1, "test string")) printf("Failed 2: ds_error = %i\n", ds_error), exit(1);
+	if(!(foo = ds_any_new())) panic();
+	if(ds_string_set(foo, -1, "test string")) panic();
+
+
+	if(!(foo = ds_any_new())) panic();
+	if(ds_string_set(foo, -1, "test string")) panic();
 	puts(((ds_string *)foo->data)->data);
 	ds_any_free(foo);
 
-	if(!(foo = ds_string_new(-1, "test string"))) printf("Failed 3: ds_error = %i\n", ds_error), exit(1);
+	if(!(foo = ds_string_new(-1, "test string2"))) panic();
 	puts(((ds_string *)foo->data)->data);
 	ds_any_free(foo);
 

@@ -39,8 +39,8 @@ static int ds_int_compare(const ds *self, const ds *other, int *result) {
 	return 0;
 }
 int ds_int_set(ds *self, long long value) {
-	if(ds_any_undef(self)) return ds_errno;
-	if(! (self->data = malloc(sizeof(ds_int)))) {ds_errno = ds_err_sys; return ds_errno;}
+	if(ds_any_undef(self)) return ds_error;
+	if(! (self->data = malloc(sizeof(ds_int)))) {ds_error = ds_error_sys; return ds_error;}
 	((ds_int *)self->data)->data = value;
 	self->type    = ds_int_type;
 	self->undef   = ds_int_undef;
@@ -58,7 +58,7 @@ fail2:	ds_any_free(ret);
 fail1:	return 0;
 }
 int ds_int_get(ds *self, long long *value) {
-	if(self->type != ds_int_type) {ds_errno = ds_err_type; return ds_errno;}
+	if(self->type != ds_int_type) {ds_error = ds_error_type; return ds_error;}
 	*value = ((ds_int *)self->data)->data;
 	return 0;
 }
