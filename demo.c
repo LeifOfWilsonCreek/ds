@@ -1,6 +1,28 @@
+#if 0
+#include <stdio.h>
+
+#include "ds.h"
+
+int main() {
+	ds *foo;
+
+	if(!(foo = ds_any_new())) printf("Failed 1: ds_errno = %i\n", ds_errno), exit(1);
+	if(ds_string_set(foo, -1, "test string")) printf("Failed 2: ds_errno = %i\n", ds_errno), exit(1);
+	puts(((ds_string *)foo->data)->data);
+	ds_any_free(foo);
+
+	if(!(foo = ds_string_new(-1, "test string"))) printf("Failed 3: ds_errno = %i\n", ds_errno), exit(1);
+	puts(((ds_string *)foo->data)->data);
+	ds_any_free(foo);
+
+	return 0;
+}
+#endif
+
+
 #include <stdlib.h>
 #include <stdio.h>
-#include "ds.c"
+#include "ds.h"
 
 /*
 *	testds.c
