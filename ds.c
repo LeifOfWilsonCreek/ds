@@ -6,6 +6,7 @@ int ds_error = 0;
 const int ds_error_sys = 1;
 const int ds_error_undef = 2;
 const int ds_error_type = 3;
+const int ds_error_bound = 4;
 
 static const char *ds_error_strings[] = {
 	"no error",

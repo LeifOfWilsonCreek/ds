@@ -233,6 +233,28 @@ int ds_array_set(ds *self, ...) {
 	obj->num_elems = num_elems;
 	return 0;
 }
+void ds_array_truncate(ds *self, size_t length) {
+
+}
+int ds_array_setelem(ds *self, size_t index, ds *elem) {
+	ds_array *obj = self->data;
+	ds *tmpelem;
+	size_t old_num_elems = obj->num_elems;
+
+	if(obj->num_elems < index + 1) {
+		if(ds_array_expand(self, index + 1)) goto fail1;
+		while(obj->num_elems < index + 1) {
+			if(!(tmpelem = ds_any_new())) goto fail2;
+			ELEMENT(obj, obj->num_elems) = tmpelem;
+			obj->num_elems++;
+	}	}
+	ds_any_incref(elem);
+	ELEMENT(obj, index) = elem;
+	return 0;
+
+fail2:	ds_array_truncate(self, old_num_elems);
+fail1:	return ds_error;
+}
 
 #if 0
 XXX: should take a va_list like ds_array_set
