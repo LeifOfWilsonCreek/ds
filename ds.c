@@ -63,10 +63,10 @@ int ds_any_free(ds *self) {
 	return err;
 }
 
-/* Round size up to a power of 2 */
-size_t roundup(size_t size) {
+/* Round length up to a power of 2 */
+size_t roundup(size_t length) {
 	size_t ret = 1;
-	while(ret < size) ret <<= 1;
+	while(ret < length) ret <<= 1;
 	return ret;
 }
 
@@ -361,6 +361,83 @@ typedef struct {
 	ds *data[0];
 } ds_array;
 
+
+/* Array memory management */
+
+/* Reallocate an array - also resets index_zero to zero.
+ * length must be >= obj->num_elems */
+static int ds_array_realloc(ds *self, size_t length) {
+	ds_array *newobj;
+	ds_array *oldobj = self->data;
+	size_t tmp;
+
+	if(oldobj->elem_alloc == length) return 0;
+	if(oldobj->index_zero + oldobj->num_elems <= oldobj->elem_alloc  /* Array DID not wrap (before expansion) */
+	&& oldobj->index_zero + oldobj->num_elems <= length) {           /* Array WILL not wrap (before contraction) */
+		/* Use realloc() - it saves reconstruction time and might save us a block move */
+		if(!(newobj = realloc(oldobj, sizeof(*newobj) + length * sizeof(newobj->data[0])))) {ds_errno = ds_err_sys; return ds_errno;}
+		newobj->elem_alloc = length;
+		self->data = newobj;
+		return 0;
+	}
+
+	if((newobj = malloc(sizeof(*newobj) + length * sizeof(newobj->data[0])))) {ds_errno = ds_err_sys; return ds_errno;}
+	newobj->elem_alloc = length;
+	newobj->min_alloc = oldobj->min_alloc;
+	newobj->index_zero = 0;
+	newobj->num_elems = oldobj->num_elems;
+	tmp = 0;
+	while(tmp < oldobj->num_elems) {
+		newobj->data[tmp] = oldobj->data[(oldobj->index_zero + tmp) % oldobj->elem_alloc];
+		tmp++;
+	}
+	free(oldobj);
+	self->data = newobj;
+	return 0;
+}
+static void ds_array_contract(ds *self) {
+	ds_array *obj = self->data;
+
+	if(obj->num_elems >= obj->elem_alloc / 3)
+		return;
+	ds_array_realloc(self, obj->min_alloc > obj->num_elems ? obj->min_alloc : obj->num_elems);
+	/* Failure doesn't matter if it's getting smaller */
+}
+static int ds_array_expand(ds *self, size_t length) {
+	ds_array *obj = self->data;
+	size_t newlength = obj->num_elems;
+
+	if(length <= obj->elem_alloc) return 0;  /* Already big enough */
+	while(newlength < length) newlength <<= 1;
+	return ds_array_realloc(self, newlength);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 static int ds_array_undef(ds *self) {
 	ds_array *obj = self->data;
 	while(obj->num_elems--)  // XXX: Could pop repeatedly instead
@@ -449,10 +526,6 @@ int ds_array_set(ds *self, ...) {
 	return 0;
 }
 
-
-
-
-
 #if 0
 XXX: should take a va_list like ds_array_set
 ds * ds_array_new() {
@@ -473,49 +546,42 @@ int ds_array_get(ds *self, ds **value, int index) {
 	return 0;
 }
 
-/* Reallocate an array - also resets index_zero to zero.
- * size must be >= obj->num_elems */
-static int ds_array_realloc(ds_array **obj, size_t size) {
-	ds_array *newobj;
-	ds_array *oldobj = *obj;
-	size_t tmp;
 
-	if(oldobj->index_zero + oldobj->num_elems <= oldobj->elem_alloc  /* Array DID not wrap (before expansion) */
-	&& oldobj->index_zero + oldobj->num_elems <= size) {             /* Array WILL not wrap (before contraction) */
-		/* Use realloc() - it saves reconstruction time and might save us a block move */
-		if(!(newobj = realloc(oldobj, sizeof(*newobj) + size * sizeof(newobj->data[0])))) {ds_errno = ds_err_sys; return ds_errno;}
-		newobj->elem_alloc = size;
-		*obj = newobj;
-		return 0;
-	}
-
-	if((newobj = malloc(sizeof(*newobj) + size * sizeof(newobj->data[0])))) {ds_errno = ds_err_sys; return ds_errno;}
-	newobj->elem_alloc = size;
-	newobj->min_alloc = oldobj->min_alloc;
-	newobj->index_zero = 0;
-	newobj->num_elems = oldobj->num_elems;
-	tmp = 0;
-	while(tmp < oldobj->num_elems) {
-		newobj->data[tmp] = oldobj->data[(oldobj->index_zero + tmp) % oldobj->elem_alloc];
-		tmp++;
-	}
-	free(oldobj);
-	*obj = newobj;
-	return 0;
-}
-int ds_array_setalloc(ds *self, size_t size) {
+int ds_array_setalloc(ds *self, size_t length) {
 	ds_array *obj = self->data;
 
-	if(size <= obj->num_elems) {
-		obj->min_alloc = size;
+	if(length <= obj->num_elems) {
+		obj->min_alloc = length;
 		return 0;
 	}
 
 	/* Reallocate the array */
-	if(ds_array_realloc((ds_array **)&self->data, size)) return ds_errno;
+	if(ds_array_realloc(self, length)) return ds_errno;
 	obj = self->data;
-	obj->min_alloc = size;
+	obj->min_alloc = length;
 
+	return 0;
+}
+int ds_array_push(ds *self, ds *elem) {
+	ds_array *obj = self->data;
+	if(ds_array_expand(self, obj->num_elems + 1)) return ds_errno;
+
+	obj = self->data;
+	obj->data[(obj->index_zero + obj->num_elems) % obj->elem_alloc] = elem;
+	obj->num_elems++;
+	return 0;
+}
+int ds_array_push0(ds *self, ds *elem) {
+	ds_array *obj = self->data;
+	if(ds_array_expand(self, obj->num_elems + 1)) return ds_errno;
+
+	obj = self->data;
+	if(obj->index_zero)
+		obj->index_zero--;
+	else
+		obj->index_zero = obj->elem_alloc - 1;
+	obj->data[obj->index_zero] = elem;
+	obj->num_elems++;
 	return 0;
 }
 ds * ds_array_pop(ds *self) {
@@ -527,8 +593,7 @@ ds * ds_array_pop(ds *self) {
 	}
 	obj->num_elems--;
 	ret = obj->data[(obj->index_zero + obj->num_elems) % obj->elem_alloc];
-	if(obj->num_elems < obj->elem_alloc / 3)
-		ds_array_realloc((ds_array **)&self->data, obj->num_elems);
+	ds_array_contract(self);
 	return ret;
 }
 ds * ds_array_pop0(ds *self) {
@@ -543,8 +608,7 @@ ds * ds_array_pop0(ds *self) {
 	obj->index_zero++;
 	if(obj->index_zero == obj->elem_alloc)
 		obj->index_zero = 0;
-	if(obj->num_elems < obj->elem_alloc / 3)
-		ds_array_realloc((ds_array **)&self->data, obj->num_elems);
+	ds_array_contract(self);
 	return ret;
 }
 
