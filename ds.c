@@ -50,7 +50,7 @@ int ds_any_free(ds *self) {
 }
 
 
-
+// XXX: If ds_*_set()s fail, they leaves it undef
 
 
 
@@ -219,7 +219,6 @@ int ds_string_set(ds *self, size_t length, const char *value) {
 	return 0;
 }
 
-// XXX: If ds_*_set fails, it leaves it undef
 
 
 
