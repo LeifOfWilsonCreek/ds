@@ -276,6 +276,7 @@ fail1:	return 0;
 #endif
 int ds_array_get(ds *self, ds **value, int index) {
 	ds_array *obj = self->data;
+	if(index >= obj->num_elems) {ds_error = ds_error_bound; return ds_error;}
 	*value = ELEMENT(obj, index);
 	ds_any_incref(*value);
 	return 0;
