@@ -411,21 +411,21 @@ static int ds_array_expand(ds *self, size_t length) {
 	while(newlength < length) newlength <<= 1;
 	return ds_array_realloc(self, newlength);
 }
+int ds_array_setalloc(ds *self, size_t length) {
+	ds_array *obj = self->data;
 
+	if(length <= obj->num_elems) {
+		obj->min_alloc = length;
+		return 0;
+	}
 
+	/* Reallocate the array */
+	if(ds_array_realloc(self, length)) return ds_errno;
+	obj = self->data;
+	obj->min_alloc = length;
 
-
-
-
-
-
-
-
-
-
-
-
-
+	return 0;
+}
 
 
 
@@ -547,21 +547,6 @@ int ds_array_get(ds *self, ds **value, int index) {
 }
 
 
-int ds_array_setalloc(ds *self, size_t length) {
-	ds_array *obj = self->data;
-
-	if(length <= obj->num_elems) {
-		obj->min_alloc = length;
-		return 0;
-	}
-
-	/* Reallocate the array */
-	if(ds_array_realloc(self, length)) return ds_errno;
-	obj = self->data;
-	obj->min_alloc = length;
-
-	return 0;
-}
 int ds_array_push(ds *self, ds *elem) {
 	ds_array *obj = self->data;
 	if(ds_array_expand(self, obj->num_elems + 1)) return ds_errno;
