@@ -55,6 +55,9 @@ int ds_string_set(ds *self, size_t length, const char *value) {
 	if(length == -1) length = strlen(value) + 1;
 	if(! (self->data = malloc(sizeof(ds_string) + length))) return ds_error_sys;
 	memcpy(((ds_string *)self->data)->data, value, length);
+
+	((ds_string *)(self->data))->length = length;
+
 	self->type    = ds_string_type;
 	self->undef   = ds_string_undef;
 	self->copy    = ds_string_copy;
