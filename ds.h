@@ -57,6 +57,7 @@ extern const char *ds_array_type;
 extern int ds_array_set(ds *self, ...);                                 /* Sets self to an array containing the specified ds's (the list is null-termed) */
 extern ds * ds_array_new();
 extern int ds_array_get(ds *self, ds **value, int index);
+ds * ds_array_slice(ds *self, size_t offset, size_t length);
 extern int ds_array_push(ds *self, ds *elem);                           /* push appends after the last element */
 extern ds * ds_array_pop(ds *self);                                     /* pop removes the last element */
 extern int ds_array_push0(ds *self, ds *elem);                          /* push0 inserts at the 0th element (like unshift) */
