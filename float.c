@@ -7,14 +7,13 @@ typedef struct {
 	long double data;
 } ds_float;
 
-static int ds_float_undef(ds *self) {
+static void ds_float_undef(ds *self) {
 	free(self->data);
 	self->type    = 0;
 	self->data    = 0;
 	self->undef   = 0;
 	self->copy    = 0;
 	self->compare = 0;
-	return 0;
 }
 static ds * ds_float_copy(const ds *self) {
 	ds *ret;
@@ -39,7 +38,7 @@ static int ds_float_compare(const ds *self, const ds *other, int *result) {
 	return 0;
 }
 int ds_float_set(ds *self, long double value) {
-	if(ds_any_undef(self)) return ds_error;
+	ds_any_undef(self);
 	if(! (self->data = malloc(sizeof(ds_float)))) {ds_error = ds_error_sys; return ds_error;}
 	((ds_float *)self->data)->data = value;
 	self->type    = ds_float_type;

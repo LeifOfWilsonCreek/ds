@@ -8,14 +8,13 @@ typedef struct {
 	unsigned char data[0];
 } ds_string;
 
-static int ds_string_undef(ds *self) {
+static void ds_string_undef(ds *self) {
 	free(self->data);
 	self->type    = 0;
 	self->data    = 0;
 	self->undef   = 0;
 	self->copy    = 0;
 	self->compare = 0;
-	return 0;
 }
 static ds * ds_string_copy(const ds *self) {
 	ds *ret;
@@ -51,7 +50,7 @@ static int ds_string_compare(const ds *self, const ds *other, int *result) {
 		index++;
 }	}
 int ds_string_set(ds *self, size_t length, const char *value) {
-	if(ds_any_undef(self)) return ds_error;
+	ds_any_undef(self);
 	if(length == -1) length = strlen(value) + 1;
 	if(! (self->data = malloc(sizeof(ds_string) + length))) return ds_error_sys;
 	memcpy(((ds_string *)self->data)->data, value, length);

@@ -17,10 +17,10 @@ static const char *ds_error_strings[] = {
 const char * ds_error_string(int error) {
 	return ds_error_strings[error];
 }
-int ds_any_undef(ds *self) {
+void ds_any_undef(ds *self) {
 	if(! ds_any_defined(self))
-		return 0;
-	return self->undef(self);
+		return;
+	self->undef(self);
 }
 ds * ds_any_copy(const ds *self) {
 	if(! ds_any_defined(self))
@@ -62,14 +62,12 @@ ds * ds_any_new() {
 int ds_any_defined(const ds *self) {
 	return (int)self->type;
 }
-int ds_any_free(ds *self) {
-	int err;
+void ds_any_free(ds *self) {
 	self->ref_count--;
 	if(self->ref_count)
-		return 0;
-	err = ds_any_undef(self);
+		return;
+	ds_any_undef(self);
 	free(self);
-	return err;
 }
 void ds_any_incref(ds *self) {
 	self->ref_count++;

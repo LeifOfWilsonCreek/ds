@@ -9,7 +9,7 @@ typedef struct ds {
 	const char *type;
 	void *data;
 	int ref_count;
-	int (*undef)();
+	void (*undef)();
 	struct ds *(*copy)();
 	int (*compare)();
 } ds;
@@ -29,12 +29,12 @@ extern const int ds_error_bound;  /* A parameter was out of bounds */
 /* General functions - These may be used on any ds type from below for the data
  * structure passed in. */
 extern const char * ds_error_string(int error);                         /* Returns description of error from ds_error */
-extern int ds_any_undef(ds *self);                                      /* Frees data associated with the ds and sets its value to "undefined"; ds is still allocated for use */
+extern void ds_any_undef(ds *self);                                     /* Frees data associated with the ds and sets its value to "undefined"; ds is still allocated for use */
 extern ds * ds_any_copy(const ds *self);                                /* Makes a copy as stores it in other */
 extern int ds_any_compare(const ds *self, const ds *other, int *result);/* Compares the two, stores 0, a negative, or a positive in result */
 extern ds * ds_any_new();                                               /* Creates a new ds with value "undef" */
 extern int ds_any_defined(const ds *self);                              /* Returns true if the ds has a "defined" (meaningful) value */   // XXX: Non-conformal return value
-extern int ds_any_free(ds *self);                                       /* Decrements ref_count, frees the ds if necessary */
+extern void ds_any_free(ds *self);                                      /* Decrements ref_count, frees the ds if necessary */
 extern void ds_any_incref(ds *self);                                    /* Incs ref_count, normally unnecessary unless the object is to be shared somehow */
 
 #include "int.h"

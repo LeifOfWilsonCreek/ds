@@ -143,7 +143,7 @@ static void ds_array_moveelems(ds *self, size_t newoff, size_t oldoff, size_t le
 
 
 /* Primitive array functions */
-static int ds_array_undef(ds *self) {
+static void ds_array_undef(ds *self) {
 	ds_array *obj = self->data;
 	size_t tmp = obj->num_elems;
 	while(tmp--)
@@ -154,7 +154,6 @@ static int ds_array_undef(ds *self) {
 	self->undef   = 0;
 	self->copy    = 0;
 	self->compare = 0;
-	return 0;
 }
 static ds * ds_array_copy(const ds *self) {
 	ds_array *oldobj = self->data, *newobj;
@@ -208,7 +207,7 @@ int ds_array_set(ds *self, ...) {
 	ds_array *obj;
 	size_t num_elems;
 
-	if(ds_any_undef(self)) return ds_error;
+	ds_any_undef(self);
 
 	num_elems = 0;
 	va_start(elems, self);
@@ -234,8 +233,14 @@ int ds_array_set(ds *self, ...) {
 	return 0;
 }
 void ds_array_truncate(ds *self, size_t length) {
+	ds_array *obj = self->data;
+	size_t index;
 
-}
+	index = length;
+	while(index < obj->num_elems) {
+		ds_any_free(ELEMENT(obj, index));
+		index++;
+}	}
 int ds_array_setelem(ds *self, size_t index, ds *elem) {
 	ds_array *obj = self->data;
 	ds *tmpelem;
