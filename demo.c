@@ -57,6 +57,8 @@ int main()
 	testStringDS(testString);
 	testArrayDS(testArray);
 //	testHashDS(testHash);
+
+	return 0;
 }
 
 void testAnyDS()
@@ -70,13 +72,13 @@ void testAnyDS()
 void testIntDS(int myInt)
 {
 	ds *intTypeDS;	
-	int *value;
+	long long value;
 
 	printf("testIntDS\n");
 	intTypeDS = ds_any_new();
 	ds_int_set(intTypeDS, myInt);
-	ds_int_get(intTypeDS, value);
-	printf(value);
+	ds_int_get(intTypeDS, &value);
+	printf("%lli\n", value);
 }
 
 void testFloatDS(float myFloat)
