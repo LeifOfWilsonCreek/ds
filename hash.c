@@ -1,7 +1,7 @@
 /*
- * At this point, nothing in this file has been tested at all.  I am committing
- * it at this point so there is a copy elsewhere, and so that the rest of my
- * group does not panic because of lack of hash stuff.
+ * This file is in various stages of testing.  At this point, adding ds'es
+ * to a hash works, as does reading the ds'es out of the hash.  Also, copying
+ * hash has been tested and seems to work.
  */
 
 #include <stdarg.h>
@@ -57,60 +57,6 @@ void ds_hash_undef(ds *self)
 {
 }
 
-struct ds *ds_hash_copy(ds *self)
-{
-	ds_hash *me = self->data, *new_me;
-	ds *new_self;
-	int i = me->table_size;
-	struct bkt *current_old_bucket, *current_new_bucket;
-#if 0
-
-	/* Allocate the new ds. */
-	if(!(new_self = malloc(sizeof(ds))))
-	{
-		ds_error = ds_error_sys;
-		return 0;
-	}
-	/* Allocate the new hash. */
-	if(!(new_me = malloc(me->num_entries * sizeof(struct bkt *) + sizeof(ds_hash))))
-	{
-		free(new_self);
-		ds_error = ds_error_sys;
-		return 0;
-	}
-	memset(new_me, 0, me->num_entries * sizeof(struct bkt *) + sizeof(ds_hash));
-	*new_self = *self;
-	new_self->data = new_me;
-	*new_me = *me;
-
-	while(i--)
-	{
-		if(!me->bucket[i]) continue;
-
-		/* Copy the first bucket. */
-		current_bucket = me->bucket[i];
-		if(!(new_me->bucket[i] = malloc(sizeof(*current_bucket) + strlen(current_bucket->key))))
-			goto bad_karma;
-
-		/* Then the data in that bucket */
-		new_me->data 
-= ds_any_copy(current_bucket->data);
-		while(current_bucket->next)
-		{
-//			current_bucket->next = malloc(sizeof(struct bkt) + )
-
-			current_bucket = current_bucket->next;
-		}
-	}
-
-#endif
-	return new_self;
-bad_karma:
-	/* FIXME : Undef the hash */
-	ds_error = ds_error_sys;
-	return 0;
-}
-
 /*
  * Finds the bucket with the given key.  If the linkto parameter is non-null, 
  * it is filled with the address of the pointer to the bucket, so that the
@@ -133,6 +79,61 @@ static struct bkt *find_bkt(ds *self, const char *key, struct bkt **linkto)
 		bucket = bucket->next;
 	}
 	return 0;
+}
+
+struct ds *ds_hash_copy(ds *self)
+{
+	ds *new_self;
+	ds_hash *me = self->data, *new_me;
+	int i;
+	struct bkt *bucket;
+	ds *temp;
+
+	if(!(new_self = ds_any_new())) return 0;
+	if(!(new_self->data = malloc(sizeof(ds_hash) + sizeof(struct bkt *) * me->num_entries)))
+	{
+		ds_error = ds_error_sys;
+		ds_any_undef(new_self);
+		return 0;
+	}
+
+	new_self->type = ds_hash_type;
+	new_self->copy = ds_hash_copy;
+	new_self->undef = ds_hash_undef;
+	new_self->compare = ds_hash_compare;
+
+	new_me = new_self->data;
+	new_me->num_entries = 0;	/* This will be incremented when data are added. */
+	new_me->table_size = me->num_entries;	/* The table grows or shrinks if desirable. */
+
+	memset(new_me->bucket, 0, new_me->table_size * sizeof(struct bkt *));
+
+	i = me->table_size;
+	while(i--)
+	{
+		bucket = me->bucket[i];
+		while(bucket)
+		{
+			/* ds_any_copy may recurse here. */
+			if(!(temp = ds_any_copy(bucket->data)))
+			{
+				/* If any ds_any_copy fails, we have to throw out the whole thing. */
+				ds_any_undef(new_self);
+				return 0;
+			}
+			/* Add the element. */
+			if(ds_hash_set_elem(new_self, bucket->key, temp))
+			{
+				/* Once again, if we get any errors, we have to throw it all out. */
+				ds_any_undef(new_self);
+				return 0;
+			}
+
+			bucket = bucket->next;
+		}
+	}
+
+	return new_self;
 }
 
 ds *ds_hash_get(ds *self, const char *key)
@@ -183,16 +184,9 @@ int ds_hash_set_elem(ds *self, const char *key, ds *value)
 	/* If we got here, the entry does not exist. Create it. */
 	if(!(bucket = malloc(strlen(key) + 1 + sizeof(struct bkt)))) return ds_error_sys;
 
-	strcpy(bucket->key, key);			/* Copy the key.  */
+	strcpy(bucket->key, key);	/* Copy the key.  */
 
-#if 0
-	if(!(bucket->data = ds_any_copy(value)))	/* Copy the data. */
-	{
-		free(bucket);
-		return ds_error;
-	}
-#endif
-	bucket->data = value;
+	bucket->data = value;		/* Copy the reference to the data. */
 	value->ref_count++;
 
 	/* Insert the bucket into the chain. */
