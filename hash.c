@@ -62,10 +62,9 @@ void ds_hash_undef(ds *self)
 
 	int i = me->table_size;
 
-puts("Testing for pending undef...");
 	if(me->undefing) return;	/* If this is already being undef'ed, return. */
 	else me->undefing = 1;
-puts("Going on...");
+
 	while(i--)
 	{
 		bucket = me->bucket[i];
@@ -183,6 +182,7 @@ int ds_hash_compare(ds *self, ds *other, int *result)
 	int i;
 	struct bkt *bucket;
 	ds *data;
+	int fill;
 
 	/*
 	 * If any of the relevent pointers are null, the compare fails.  If
@@ -207,7 +207,6 @@ int ds_hash_compare(ds *self, ds *other, int *result)
 				if(result) *result = 1;
 				return 2;
 			}
-			int fill;
 			if(ds_any_compare(bucket->data, data, &fill))
 			{
 				ds_any_free(data);
