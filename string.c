@@ -128,3 +128,25 @@ ds * ds_string_join(ds *self, ds *joiner) {
 fail2:	ds_any_free(new);
 fail1:	return 0;
 }
+#if 0
+ds * ds_string_split(ds *self, ds *joiner) {
+	ds *ret;
+	size_t strsize, joinsize, counter;
+	const char *strptr, *joinptr;
+
+	if(ds_string_get(self, &strsize, &strptr)) goto fail1;
+	if(ds_string_get(self, &joinsize, &joinptr)) goto fail1;
+	if(joiner->type != ds_string_type) goto fail1;
+	if(!(ret = ds_any_new())) goto fail1;
+
+	/* Find number of elements for the array */
+	index = 0;
+	while(index < strsize - jsize) {
+		...
+		index++;
+	}
+
+fail2:	ds_any_free(ret);
+fail1:	return 0;
+}
+#endif
