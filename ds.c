@@ -207,35 +207,23 @@ int ds_string_compare(const ds *self, const ds *other, int *result) {
 			return 0;
 		index++;
 }	}
-
-#if 0
-int ds_string_set(ds *self, long double value) {
+int ds_string_set(ds *self, size_t length, const char *value) {
 	if(self->data)
 		ds_any_undef(self);
-	if(! (self->data = malloc(sizeof(ds_string)))) return ds_err_sys;
+	if(length == -1) length = strlen(value) + 1;
+	if(! (self->data = malloc(sizeof(ds_string) + length))) return ds_err_sys;
+	memcpy(((ds_string *)self->data)->data, value, length);
 	self->undef   = ds_string_undef;
 	self->copy    = ds_string_copy;
 	self->compare = ds_string_compare;
-
-	return 0;
-}
-int ds_string_set(ds_string *ds, size_t length, const char *value) {
-	unsigned char *data;
-	if(length == -1) length = strlen(value) + 1;
-	if(!(data = malloc(length))) return DS_ESYS;
-	memcpy(data, value, length);
-	if(self->data) free(self->data);
-	self->data = data;
 	return 0;
 }
 
+// XXX: If ds_*_set fails, it leaves it undef
 
 
 
-
-
-
-
+#if 0
 int ds_array_new(ds_array **ds) {
 	if(!(*ds = malloc(sizeof(**ds)))) return DS_ESYS;
 	(*ds)->type = ds_type_array;
