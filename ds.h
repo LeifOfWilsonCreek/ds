@@ -37,16 +37,19 @@ extern int ds_any_free(ds *self);                                       /* Decre
 extern const char *ds_int_type;
 extern int ds_int_set(ds *self, long long value);
 extern ds * ds_int_new(long long value);
+extern int ds_int_get(ds *self, long long *value);
 
 /* float functions */
 extern const char *ds_float_type;
 extern int ds_float_set(ds *self, long double value);
 extern ds * ds_float_new(long double value);
+extern int ds_float_get(ds *self, long double *value);
 
 /* string functions - may include nulls if length is specified */
 extern const char *ds_string_type;
 extern int ds_string_set(ds *self, size_t length, const char *value);   /* if(length == -1) length = strlen(value) + 1; */
 extern ds * ds_string_new(size_t length, const char *value);
+extern int ds_string_get(ds *self, size_t *length, const char **value);
 
 /* array functions */
 extern const char *ds_array_type;

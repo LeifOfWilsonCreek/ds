@@ -142,11 +142,11 @@ ds * ds_int_new(long long value) {
 fail2:	ds_any_free(ret);
 fail1:	return 0;
 }
-
-
-
-
-
+int ds_int_get(ds *self, long long *value) {
+	if(self->type != ds_int_type) {ds_errno = ds_err_type; return ds_errno;}
+	*value = ((ds_int *)self->data)->data;
+	return 0;
+}
 
 
 
@@ -230,11 +230,11 @@ ds * ds_float_new(long double value) {
 fail2:	ds_any_free(ret);
 fail1:	return 0;
 }
-
-
-
-
-
+int ds_float_get(ds *self, long double *value) {
+	if(self->type != ds_float_type) {ds_errno = ds_err_type; return ds_errno;}
+	*value = ((ds_float *)self->data)->data;
+	return 0;
+}
 
 
 
@@ -331,14 +331,14 @@ ds * ds_string_new(size_t length, const char *value) {
 fail2:	ds_any_free(ret);
 fail1:	return 0;
 }
-
-
-
-
-
-
-
-
+int ds_string_get(ds *self, size_t *length, const char **value) {
+	if(self->type != ds_string_type) {ds_errno = ds_err_type; return ds_errno;}
+	if(length)
+		*length = ((ds_string *)self->data)->length;
+	if(value)
+		*value = ((ds_string *)self->data)->data;
+	return 0;
+}
 
 
 
