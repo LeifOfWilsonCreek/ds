@@ -1,9 +1,3 @@
-/*
- * This file is in various stages of testing.  At this point, adding ds'es
- * to a hash works, as does reading the ds'es out of the hash.  Also, copying
- * hash has been tested and seems to work.
- */
-
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,8 +40,16 @@ struct bkt
 };
 
 
+/*
+ * ds_hash::undefing is set while a hash is being undef'ed.  If undef is
+ * called on a hash that is being undef'ed, it should return immediately.
+ * This should allow hashes to be self-referent, or otherwise involved in
+ * circular linking.
+ */
+
 typedef struct
 {
+	int undefing;
 	int table_size;		/* Number of buckets allocated */
 	int num_entries;	/* Number of entries in the hash */
 	struct bkt *bucket[0];	/* This is going to be an array of linked lists. */
@@ -55,6 +57,34 @@ typedef struct
 
 void ds_hash_undef(ds *self)
 {
+	ds_hash *me = self->data;
+	struct bkt *bucket;
+
+	int i = me->table_size;
+
+puts("Testing for pending undef...");
+	if(me->undefing) return;	/* If this is already being undef'ed, return. */
+	else me->undefing = 1;
+puts("Going on...");
+	while(i--)
+	{
+		bucket = me->bucket[i];
+		while(bucket)
+		{
+			ds_any_undef(bucket->data);
+			bucket = bucket->next;
+			free(bucket);	/* Burning our bridges... */
+		}
+	}
+
+	free(me);
+
+	self->data = 0;
+	self->type    = 0;
+	self->data    = 0;
+	self->undef   = 0;
+	self->copy    = 0;
+	self->compare = 0;
 }
 
 /*
@@ -147,9 +177,49 @@ ds *ds_hash_get(ds *self, const char *key)
 }
 
 /* Returns 0 if equal, positive if not equal */
-int ds_hash_compare(ds *self, ds *other)
+int ds_hash_compare(ds *self, ds *other, int *result)
 {
-	return 0;
+	ds_hash *me1, *me2;
+	int i;
+	struct bkt *bucket;
+	ds *data;
+
+	/*
+	 * If any of the relevent pointers are null, the compare fails.  If
+	 * either of the ds'es is not a hash, it fails.  If the hashes do not
+	 * have the same number of entries, it fails.  The ds_hash pointers
+	 * are initialized in this conditional.
+	 */
+	if(!self || !other || !(me1 = self->data) || !(me2 = other->data)
+	  || strcmp(ds_hash_type, self->type) || strcmp(ds_hash_type, other->type)
+	  || (me1->num_entries != me2->num_entries))
+		return 1;
+
+
+	i = me1->table_size;
+	while(i--)
+	{
+		bucket = me1->bucket[i];
+		while(bucket)
+		{
+			if(!(data = ds_hash_get(other, bucket->key))) 
+			{
+				if(result) *result = 1;
+				return 2;
+			}
+			int fill;
+			if(ds_any_compare(bucket->data, data, &fill))
+			{
+				ds_any_free(data);
+				if(result) *result = 1;
+				return 3;
+			}
+			bucket = bucket->next;
+		}
+	}
+	if(result) *result = 0;
+	return 0;	/* If we got here, they are equal. */
+	
 }
 
 void ds_hash_undef_elem(ds *self, const char *key)
@@ -246,6 +316,7 @@ ds *ds_hash_set(ds *self, ...)
 	me->table_size = num_entries;
 	me->num_entries = 0;	/* This will be set as the items are added. */
 	memset(me->bucket, 0, me->table_size * sizeof(me->bucket[0]));
+	me->undefing = 0;
 
 	while((key = va_arg(list, char *)) && (value = va_arg(list, ds *)))
 		if(ds_hash_set_elem(self, key, value))
