@@ -360,9 +360,8 @@ typedef struct {
 	ds *data[0];
 } ds_array;
 
-
 /* Array memory management */
-#if 1   /* Which one is faster? */
+#if 1   /* Is a comparason and branch faster than mod? */
 #	define ELEMENT(obj, index) ((obj)->data[(obj)->index_zero + (index) < (obj)->elem_alloc ? (obj)->index_zero + (index) : (obj)->index_zero + (index) - (obj)->elem_alloc])
 #else
 #	define ELEMENT(obj, index) ((obj)->data[((obj)->index_zero + (index)) % (obj)->elem_alloc])
@@ -373,7 +372,6 @@ typedef struct {
 static int ds_array_resize(ds *self, size_t length) {
 	ds_array *newobj;
 	ds_array *oldobj = self->data;
-	size_t tmp;
 
 	if(oldobj->elem_alloc == length) return 0;
 	if(oldobj->index_zero + oldobj->num_elems <= oldobj->elem_alloc  /* Array DID not wrap (before expansion) */
@@ -390,10 +388,11 @@ static int ds_array_resize(ds *self, size_t length) {
 	newobj->min_alloc = oldobj->min_alloc;
 	newobj->index_zero = 0;
 	newobj->num_elems = oldobj->num_elems;
-	tmp = 0;
-	while(tmp < oldobj->num_elems) {
-		newobj->data[tmp] = ELEMENT(oldobj, tmp);
-		tmp++;
+	if(oldobj->index_zero + oldobj->num_elems > oldobj->elem_alloc) {
+		memcpy(&newobj->data[0], &oldobj->data[oldobj->index_zero], (oldobj->elem_alloc - oldobj->index_zero) * sizeof(oldobj->data[0]));
+		memcpy(&newobj->data[oldobj->elem_alloc - oldobj->index_zero], &oldobj->data[0], (oldobj->num_elems - oldobj->elem_alloc + oldobj->index_zero) * sizeof(oldobj->data[0]));
+	} else {
+		memcpy(&newobj->data[0], &oldobj->data[oldobj->index_zero], oldobj->num_elems * sizeof(oldobj->data[0]));
 	}
 	free(oldobj);
 	self->data = newobj;
@@ -430,6 +429,7 @@ int ds_array_setalloc(ds *self, size_t length) {
 
 	return 0;
 }
+
 
 
 
@@ -565,10 +565,10 @@ ds * ds_array_slice(ds *self, size_t offset, size_t length) {
 	newobj = ret->data; /* newobj->index_zero is zero */
 
 	if(obj->index_zero + offset + length > obj->elem_alloc) {
-		memcpy(newobj->data, &obj->data[obj->index_zero + offset], (obj->elem_alloc - obj->index_zero - offset) * sizeof(obj->data[0]));
-		memcpy(newobj->data, &obj->data[0], (length - obj->elem_alloc + obj->index_zero + offset) * sizeof(obj->data[0]));
+		memcpy(&newobj->data[0], &obj->data[obj->index_zero + offset], (obj->elem_alloc - obj->index_zero - offset) * sizeof(obj->data[0]));
+		memcpy(&newobj->data[obj->elem_alloc - obj->index_zero - offset], &obj->data[0], (length - obj->elem_alloc + obj->index_zero + offset) * sizeof(obj->data[0]));
 	} else {
-		memcpy(newobj->data, &obj->data[obj->index_zero + offset], length * sizeof(obj->data[0]));
+		memcpy(&newobj->data[0], &obj->data[obj->index_zero + offset], length * sizeof(obj->data[0]));
 	}
 
 	return ret;
