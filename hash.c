@@ -290,6 +290,7 @@ ds *ds_hash_set(ds *self, ...)
 
 	while(va_arg(list, void *)) num_entries++;
 	num_entries /= 2;	/* For every 2 values passed, there is 1 key and one value. */
+	if(num_entries < 8) num_entries = 8;	/* The minimum size is 8 entries. */
 	va_end(list);
 	va_start(list, self);	/* Reset the va_list for the actual entries. */
 
