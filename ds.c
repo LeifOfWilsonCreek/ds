@@ -63,15 +63,15 @@ int ds_any_free(ds *self) {
 	return err;
 }
 
-/* Round length up to a power of 2 */
-size_t roundup(size_t length) {
-	size_t ret = 1;
-	while(ret < length) ret <<= 1;
-	return ret;
-}
-
 // XXX: If ds_*_set()s fail, they leaves it undef
 // XXX: Need some type checking
+
+
+
+
+
+
+
 
 
 
@@ -502,26 +502,26 @@ int ds_array_set(ds *self, ...) {
 	va_list elems;
 	ds *elem;
 	ds_array *obj;
-	size_t num_elems = 0, elem_alloc, index;
+	size_t num_elems;
 
 	if(ds_any_undef(self)) return ds_errno;
 
+	num_elems = 0;
 	va_start(elems, self);
 	while(va_arg(elems, typeof(elem))) num_elems++;
 	va_end(elems);
-	elem_alloc = roundup(num_elems);
 
 	if(!(self->data = obj = malloc(sizeof(ds_array) + num_elems * sizeof(elem)))) {ds_errno = ds_err_sys; return ds_errno;}
-	index = 0;
+	num_elems = 0;
 	va_start(elems, self);
 	while((elem = va_arg(elems, typeof(elem))))
-		obj->data[index++] = elem;
+		obj->data[num_elems++] = elem;
 	va_end(elems);
 	self->type    = ds_array_type;
 	self->undef   = ds_array_undef;
 	self->copy    = ds_array_copy;
 	self->compare = ds_array_compare;
-	obj->elem_alloc = elem_alloc;
+	obj->elem_alloc = num_elems;
 	obj->min_alloc = 0;
 	obj->index_zero = 0;
 	obj->num_elems = num_elems;
