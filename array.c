@@ -1,5 +1,6 @@
 #include <stdarg.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "ds.h"
 
@@ -72,6 +73,7 @@ int ds_array_setalloc(ds *self, size_t length) {
 
 	if(length <= obj->num_elems) {
 		obj->min_alloc = length;
+		ds_array_contract(self);
 		return 0;
 	}
 
@@ -82,6 +84,62 @@ int ds_array_setalloc(ds *self, size_t length) {
 
 	return 0;
 }
+static void ds_array_moveelems(ds *self, size_t newoff, size_t oldoff, size_t length) {
+	ds_array *obj = self->data;
+
+	/* Adjust for index_zero first */
+	oldoff += obj->index_zero;
+	newoff += obj->index_zero;
+	while(oldoff >= obj->elem_alloc) oldoff -= obj->elem_alloc;
+	while(newoff >= obj->elem_alloc) newoff -= obj->elem_alloc;
+
+	/* This is the drudgery of the different cases in how the array is
+	 * wrapped before and after the move.  I can't make it any clearer
+	 * without a marker board. */
+	if(oldoff < newoff) {
+		/* the old chunk can't wrap unless the new one does because oldoff < newoff */
+		if(length <= obj->elem_alloc - newoff) {
+			/* neither chunk wraps */
+			memmove(&obj->data[newoff], &obj->data[oldoff], length * sizeof(obj->data[0]));
+		} else
+		  /* length > obj->elem_alloc - newoff) */
+		  if(length <= obj->elem_alloc - oldoff) {
+			/* new chunk wraps, old one doesn't */
+			size_t first_chunk = obj->elem_alloc - newoff;
+			size_t second_chunk = length - first_chunk;
+			memmove(&obj->data[0], &obj->data[oldoff + first_chunk], second_chunk * sizeof(obj->data[0]));
+			memmove(&obj->data[newoff], &obj->data[oldoff], first_chunk * sizeof(obj->data[0]));
+		} else /* length > obj->elem_alloc - oldoff */ {
+			/* both chunks wrap, but new wraps before old */
+			size_t first_chunk = obj->elem_alloc - newoff;
+			size_t second_chunk = newoff - oldoff;   /* elems between when new wraps and old wraps */
+			size_t third_chunk = length - second_chunk - first_chunk;
+			memmove(&obj->data[second_chunk], &obj->data[0], third_chunk * sizeof(obj->data[0]));
+			memmove(&obj->data[0], &obj->data[oldoff + first_chunk], second_chunk * sizeof(obj->data[0]));
+			memmove(&obj->data[newoff], &obj->data[oldoff], first_chunk * sizeof(obj->data[0]));
+		}
+	} else if(newoff < oldoff) {
+		/* the new chunk can't wrap unless the old one does because newoff < oldoff */
+		if(length <= obj->elem_alloc - oldoff) {
+			/* neither chunk wraps */
+			memmove(&obj->data[newoff], &obj->data[oldoff], length * sizeof(obj->data[0]));
+		} else
+		  /* length > obj->elem_alloc - oldoff) */
+		  if(length <= obj->elem_alloc - newoff) {
+			/* old chunk wraps, new one doesn't */
+			size_t first_chunk = obj->elem_alloc - oldoff;
+			size_t second_chunk = length - first_chunk;
+			memmove(&obj->data[newoff], &obj->data[oldoff], first_chunk * sizeof(obj->data[0]));
+			memmove(&obj->data[newoff + first_chunk], &obj->data[0], second_chunk * sizeof(obj->data[0]));
+		} else /* length > obj->elem_alloc - newoff */ {
+			/* both chunks wrap, but old wraps before new */
+			size_t first_chunk = obj->elem_alloc - oldoff;
+			size_t second_chunk = oldoff - newoff;   /* elems between when old wraps and new wraps */
+			size_t third_chunk = length - second_chunk - first_chunk;
+			memmove(&obj->data[newoff], &obj->data[oldoff], first_chunk * sizeof(obj->data[0]));
+			memmove(&obj->data[newoff + first_chunk], &obj->data[0], second_chunk * sizeof(obj->data[0]));
+			memmove(&obj->data[0], &obj->data[second_chunk], third_chunk * sizeof(obj->data[0]));
+}	}	}
 
 
 /* Primitive array functions */
@@ -99,23 +157,23 @@ static int ds_array_undef(ds *self) {
 	return 0;
 }
 static ds * ds_array_copy(const ds *self) {
-	ds_array *obj = self->data;
+	ds_array *oldobj = self->data, *newobj;
 	ds *ret, *tmp;
-	size_t index;
 
 	if(!(ret = ds_any_new())) goto fail1;
 	if(ds_array_set(ret, 0)) goto fail2;
-	if(ds_array_setalloc(ret, obj->num_elems)) goto fail2;
+	if(ds_array_resize(ret, oldobj->min_alloc > oldobj->num_elems ? oldobj->min_alloc : oldobj->num_elems)) goto fail2;
+	newobj = ret->data;
+	newobj->min_alloc = oldobj->min_alloc;
 
-	index = 0;
-	while(index < obj->num_elems) {
-		if(!(tmp = ds_any_copy(ELEMENT(obj, index)))) goto fail2;
-		if(ds_array_push(ret, tmp)) goto fail3;
-		index++;
+	while(newobj->num_elems < oldobj->num_elems) {
+		if(!(tmp = ds_any_copy(ELEMENT(oldobj, newobj->num_elems)))) goto fail2;
+		newobj->data[newobj->num_elems] = tmp;
+		newobj->num_elems++;
 	}
+
 	return ret;
 
-fail3:	ds_any_free(tmp);
 fail2:	ds_any_free(ret);
 fail1:	return 0;
 }
@@ -251,27 +309,20 @@ int ds_array_splice(ds *self, size_t before_len, size_t delete_len, const ds *in
 		index++;
 	}
 
-	/* XXX: This is not as efficient as it could be, especially for
-	 * inserting into or deleting from the first half of the array.
-	 * Also, memcpy could be used to speed things up. */
-	if(insert_len < delete_len) {
-		index = 0;
-		while(index < after_len) {
-			ELEMENT(obj, before_len + insert_len + index) = ELEMENT(obj, before_len + delete_len + index);
-			index++;
-		}
-		obj->num_elems = before_len + insert_len + after_len;
-	} else if(insert_len > delete_len) {
-		index = after_len;
-		while(index--) {
-			ELEMENT(obj, before_len + insert_len + index) = ELEMENT(obj, before_len + delete_len + index);
-			index++;
-		}
-		obj->num_elems = before_len + insert_len + after_len;
+	if(before_len >= after_len) {
+		/* It's faster to move the elements after the slice */
+		ds_array_moveelems(self, before_len + insert_len, before_len + delete_len, after_len);
+	} else {
+		/* It's faster to move the elements before the slice */
+		/* index_zero can't go negative and you can't move to a negative offset */
+		obj->index_zero += obj->elem_alloc - insert_len + delete_len;
+		while(obj->index_zero >= obj->elem_alloc) obj->index_zero -= obj->elem_alloc;
+		ds_array_moveelems(self, 0, insert_len - delete_len, before_len);
 	}
+	obj->num_elems = before_len + insert_len + after_len;
 
 	index = 0;
-	while(index < insert_len) {    /* insert_len == 0 if not insert */
+	while(index < insert_len) {    /* if(!insert) insert_len = 0; */
 		elem = ELEMENT(insert_obj, index);
 		ds_any_incref(elem);
 		ELEMENT(obj, before_len + index) = elem;
