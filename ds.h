@@ -21,6 +21,7 @@ extern int ds_error;
 extern const int ds_error_sys;    /* A system call returned an error - check errno */
 extern const int ds_error_undef;  /* A parameter which may not be undefined was */
 extern const int ds_error_type;   /* A parameter was of the wrong type */
+extern const int ds_error_bound;  /* A parameter was out of bounds */
 
 
 /* FUNCTION PROTOTYPES */

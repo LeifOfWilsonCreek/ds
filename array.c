@@ -383,3 +383,66 @@ ds * ds_array_pop0(ds *self) {
 	ds_array_contract(self);
 	return ret;
 }
+
+
+/* Leif's quicker-sort:
+ * This algorithm has a best case of O(n) when all the input values are equal.
+ * It is O(n log n) for sorted and reverse sorted arrays (these are all O(n^2)
+ * for traditional qsort).  The worst case is still O(n^2), but only happens
+ * when middle always happens to be an extreme value and there are no repeated
+ * values.  O(n^2) is pretty rare now.  It could be made even less common by
+ * tweaking middle. */
+
+static inline void swap(ds **first, ds **second) {
+	ds *tmp;
+	tmp = *first;
+	*first = *second;
+	*second = tmp;
+}
+static int qsorter(ds *self, size_t offset, size_t length) {
+	ds_array *obj = self->data;
+	ds *middle = ELEMENT(obj, offset + length / 2); /* Number to compare with */
+	int lt_items = 0;                               /* Number of items less than middle */
+	int eq_items = 0;                               /* Number of items equal to middle */
+	int gt_items = 0;                               /* Number of items greater than middle */
+	int un_items = length;                          /* Number of unpartitioned items */
+
+	if(un_items < 2) return 0;
+
+	/* The array stays in the order lt_items, eq_items, un_items, gt_items. */
+
+	/* This shrinks un_items until it is 0. */
+	while(un_items) {
+		int comp;
+		if(ds_any_compare(ELEMENT(obj, offset + lt_items + eq_items), middle, &comp) && ds_error != ds_error_undef) {
+			ds_error = ds_error_type;
+			return ds_error;
+		}
+// Test code: printf("lt=%i, eq=%i, gt=%i, un=%i, comp=%i\n", lt_items, eq_items, gt_items, un_items, comp);
+		if(comp < 0) {
+			if(eq_items)
+				swap(&ELEMENT(obj, offset + lt_items + eq_items), &ELEMENT(obj, offset + lt_items));
+			lt_items++;
+		} else if(comp > 0) {
+			gt_items++;
+			swap(&ELEMENT(obj, offset + lt_items + eq_items), &ELEMENT(obj, offset + length - gt_items));
+		} else {
+			eq_items++;
+		}
+		un_items--;
+	}
+
+	if(qsorter(self, offset, lt_items)) return ds_error;
+	if(qsorter(self, offset + length - gt_items, gt_items)) return ds_error;
+	return 0;
+}
+
+int ds_array_qsort(ds *self, size_t offset, size_t length) {
+	if(self->type != ds_array_type) {ds_error = ds_error_type; return ds_error;}
+	if(length == -1) {
+		ds_array *obj = self->data;
+		if(obj->num_elems < offset) {ds_error = ds_error_bound; return ds_error;}
+		length = obj->num_elems - offset;
+	}
+	return qsorter(self, offset, length);
+}
