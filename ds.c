@@ -423,7 +423,7 @@ int ds_array_setalloc(ds *self, size_t length) {
 		return 0;
 	}
 
-	/* Reallocate the array */
+	/* Resize the array */
 	if(ds_array_resize(self, length)) return ds_errno;
 	obj = self->data;
 	obj->min_alloc = length;
@@ -437,6 +437,8 @@ int ds_array_setalloc(ds *self, size_t length) {
 
 
 
+
+/* Primitive array functions */
 static int ds_array_undef(ds *self) {
 	ds_array *obj = self->data;
 	size_t tmp = obj->num_elems;
@@ -539,13 +541,11 @@ fail2:	free(ret);
 fail1:	return 0;
 }
 #endif
-
 int ds_array_get(ds *self, ds **value, int index) {
 	ds_array *obj = self->data;
 	*value = ELEMENT(obj, index);
 	return 0;
 }
-
 ds * ds_array_slice(ds *self, size_t offset, size_t length) {
 	ds *ret;
 	ds_array *obj, *newobj;
