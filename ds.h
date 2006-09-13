@@ -64,8 +64,8 @@ extern void ds_any_incref(ds *self);                                    /* Incs 
  * caller.
  *
  *  - A ds is typeless, but the data stored with it is typed, so you can call
- * ds_float_set to assign an int to a ds that contained an array, but you can't
- * use ds_any_compare to compare a float and an array.
+ * ds_float_set to assign a float to a ds that contained an array, but you
+ * can't use ds_any_compare to compare a float and an array.
  *
  *  - Undef may be stored and retrieved, but most other operations will return
  * an error if it's used.  ds_any_compare will return ds_error_undef in ds_error
